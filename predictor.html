@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aviator Strategy Dashboard v6+</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #0f172a;
+      color: #f1f5f9;
+      padding: 2rem;
+    }
+    h1 {
+      text-align: center;
+      color: #22d3ee;
+    }
+    input, button {
+      padding: 0.5rem;
+      font-size: 1rem;
+      margin: 0.25rem 0;
+    }
+    .container {
+      max-width: 750px;
+      margin: auto;
+      background: #1e293b;
+      padding: 2rem;
+      border-radius: 0.75rem;
+    }
+    .result {
+      margin-top: 1rem;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+    .green { color: #4ade80; }
+    .red { color: #f87171; }
+    .yellow { color: #facc15; }
+    .blue { color: #60a5fa; }
+    #coteFields input {
+      width: 80px;
+      display: inline-block;
+    }
+    .metrics {
+      font-size: 0.95rem;
+      margin-top: 1rem;
+      line-height: 1.5;
+    }
+    code {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <h1>Aviator Strategy Dashboard v6+</h1>
+  <div class="container">
+    <p>Entrer les dernières cotes :</p>
+    <div id="coteFields"></div>
+    <button onclick="ajouterChamp()">➕ Ajouter une cote</button>
+    <button onclick="resetChamps()">🔄 Réinitialiser</button>
+    <button onclick="analyserCotes()">📊 Analyser</button>
+    <button onclick="simulationCrypto()">🔐 Simulation Crypto (SHA512)</button>
+
+    <div id="resultat" class="result"></div>
+    <div id="metrics" class="metrics"></div>
+    <div id="crypto" class="metrics"></div>
+  </div>
+
+  <script>
+    function ajouterChamp() {
+      const container = document.getElementById("coteFields");
+      const input = document.createElement("input");
+      input.type = "number";
+      input.step = "0.01";
+      input.placeholder = "Cote";
+      container.appendChild(input);
+    }
+
+    function resetChamps() {
+      document.getElementById("coteFields").innerHTML = "";
+      document.getElementById("resultat").innerHTML = "";
+      document.getElementById("metrics").innerHTML = "";
+      document.getElementById("crypto").innerHTML = "";
+      for (let i = 0; i < 10; i++) ajouterChamp();
+    }
+
+    function analyserCotes() {
+      const inputs = document.querySelectorAll('#coteFields input');
+      const valeurs = Array.from(inputs).map(i => parseFloat(i.value)).filter(v => !isNaN(v));
+      const resultat = document.getElementById("resultat");
+      const metrics = document.getElementById("metrics");
+
+      if (valeurs.length < 5) {
+        resultat.innerHTML = "⚠️ Entrez au moins 5 cotes pour une analyse fiable.";
+        resultat.className = "result red";
+        return;
+      }
+
+      const rouges = valeurs.filter(v => v < 2);
+      const verts = valeurs.filter(v => v >= 2);
+      const derniere = valeurs[valeurs.length - 1];
+      const moyenne5 = valeurs.slice(-5).reduce((a, b) => a + b, 0) / 5;
+      const ecartType = Math.sqrt(valeurs.reduce((acc, val) => acc + Math.pow(val - moyenne5, 2), 0) / valeurs.length);
+      const highRate = valeurs.filter(v => v > 10).length / valeurs.length;
+      const lowStreak = valeurs.slice().reverse().findIndex(v => v >= 2);
+      const patternCode = valeurs.map(v => v < 2 ? 0 : 1).join("");
+      const moyenneRouge = rouges.length ? rouges.reduce((a, b) => a + b) / rouges.length : 0;
+      const moyenneVert = verts.length ? verts.reduce((a, b) => a + b) / verts.length : 0;
+      const grosses = valeurs.filter(v => v > 20).length;
+      const ivp = (ecartType * grosses) / valeurs.length;
+
+      let score = 0;
+      if (rouges.length >= 6) score += 2.0;
+      if (moyenne5 > 3.0) score += 1.5;
+      if (ecartType > 5.0) score += 1.2;
+      if (highRate > 0.08) score += 1.5;
+      if (lowStreak >= 3) score += 1.3;
+      if (ivp > 0.5) score += 1.2;
+
+      let prediction = "< 2";
+      let confiance = "faible";
+      let risque = "🔴 Risque élevé";
+      let couleur = "red";
+
+      if (score >= 5.5) {
+        prediction = "≥ 2";
+        confiance = "forte (≈ 90%)";
+        risque = "🟢 Faible risque";
+        couleur = "green";
+      } else if (score >= 3.5) {
+        prediction = "≥ 2";
+        confiance = "moyenne (≈ 80%)";
+        risque = "🟡 Risque modéré";
+        couleur = "yellow";
+      }
+
+      resultat.innerHTML = `
+        🎯 Prédiction prochaine cote : <strong class="${couleur}">${prediction}</strong><br>
+        📊 Confiance : ${confiance}<br>
+        ⚠️ ${risque}
+      `;
+      resultat.className = `result ${couleur}`;
+
+      metrics.innerHTML = `
+        <strong>🔬 Détails de l'analyse avancée :</strong><br>
+        - Moyenne (5 dernières) : ${moyenne5.toFixed(2)}<br>
+        - Moyenne cotes < 2 : ${moyenneRouge.toFixed(2)} (${rouges.length} cotes)<br>
+        - Moyenne cotes ≥ 2 : ${moyenneVert.toFixed(2)} (${verts.length} cotes)<br>
+        - Écart-type : ${ecartType.toFixed(2)}<br>
+        - Ratio cotes >10 : ${(highRate * 100).toFixed(1)}%<br>
+        - IVP (volatilité) : ${ivp.toFixed(3)}<br>
+        - Streak actuel < 2 : ${lowStreak} tour(s)<br>
+        - Pattern actuel : ${patternCode}
+      `;
+    }
+
+    async function genererHash(serverSeed, playerSeed) {
+      const data = serverSeed + playerSeed;
+      const encoder = new TextEncoder();
+      const buffer = encoder.encode(data);
+      const hashBuffer = await crypto.subtle.digest("SHA-512", buffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function calculerMultiplicateur(hashHex) {
+      const slice = hashHex.slice(0, 16);
+      const num = parseInt(slice, 16);
+      const max = Math.pow(2, 52);
+      let result = (max / (num + 1));
+      result = Math.floor(result * 100) / 100;
+      return Math.max(1.0, result);
+    }
+
+    function simulationCrypto() {
+      const serverSeed = prompt("Entrez le serverSeed (ex: secret du serveur)");
+      const playerSeed = prompt("Entrez le playerSeed (ex: identifiant joueur)");
+
+      if (!serverSeed || !playerSeed) {
+        alert("Les deux seeds sont requis.");
+        return;
+      }
+
+      genererHash(serverSeed, playerSeed).then(hash => {
+        const multiplicateur = calculerMultiplicateur(hash);
+        const div = document.getElementById("crypto");
+        div.innerHTML = `
+          <strong>🧬 Simulation Provably Fair :</strong><br>
+          - Hash SHA512 :<br><code>${hash}</code><br>
+          - Multiplicateur simulé : <strong class="${multiplicateur >= 2 ? 'green' : 'red'}">${multiplicateur.toFixed(2)}x</strong>
+        `;
+      });
+    }
+
+    resetChamps();
+  </script>
+</body>
+</html>
